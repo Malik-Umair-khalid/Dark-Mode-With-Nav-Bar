@@ -18,7 +18,8 @@ import {
   onSnapshot,
   addDoc,
   orderBy,
-  updateDoc 
+  updateDoc, 
+  increment
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -52,5 +53,6 @@ export {
   onSnapshot,
   addDoc,
   orderBy,
-  updateDoc 
+  updateDoc,
+  increment
 };

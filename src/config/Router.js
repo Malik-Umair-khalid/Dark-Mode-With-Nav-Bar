@@ -55,7 +55,8 @@ function AppRouter() {
     useEffect(() => {
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                setIsAuth(true)
+                setIsAuth(true) 
+                
             } else {
                 setIsAuth(false)
             }

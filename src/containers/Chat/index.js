@@ -26,6 +26,7 @@ import {
   addDoc,
   orderBy,
   updateDoc,
+  increment,
 } from "../../config/Firebase";
 function Chat(props) {
   const location = useLocation();
@@ -41,6 +42,18 @@ function Chat(props) {
   const [groupName, setgroupName] = useState("");
   const [groupUserName, setgroupUserName] = useState([]);
   const [groups, setgroups] = useState([]);
+  const [currentUser, setcurrentUser] = useState();
+  const [chat_id, setchat_id] = useState()
+  const [Unreadmessages, setUnreadmessages] = useState([])
+
+  const getCurrentUser = async () => {
+    const docRef = query(collection(db, "users"), where("uid", "==", uid));
+    const querySnapshot = await getDocs(docRef);
+    querySnapshot.forEach((doc) => {
+      setcurrentUser(doc.data());
+    });
+  };
+  console.log("CURRENT USER=>", currentUser);
 
   const getAllUsers = async () => {
     const docRef = query(collection(db, "users"), where("uid", "!=", uid));
@@ -51,187 +64,185 @@ function Chat(props) {
     });
     setUsers(arr);
   };
-  const getGroupUsers = async () => {
-    for (var i = 0; i < groupUsers.length; i++) {
-      console.log(groupUsers[i]);
-      const docRef = query(
-        collection(db, "users"),
-        where("uid", "!=", groupUsers[i])
-      );
-      const querySnapshot = await getDocs(docRef);
-      let arr = [];
-      querySnapshot.forEach((doc) => {
-        arr.push(doc.data());
-      });
-      setvalidateGroupUsers(arr);
-      // alert("hello")
-    }
-    console.log(groupUsers);
-  };
-  console.log(groupUsers);
-  console.log(validateGroupUsers);
 
   useEffect(() => {
     getGroups();
-    getGroupUsers();
+    getCurrentUser();
     getAllUsers();
+   
   }, []);
-// useEffect(() => {
-//   const getAllMessages = async () => {
-  
-//     const q = query(
-//       collection(db, "messages"),
-//       where("chat_id", "==", currentChat.groupId),
-//       orderBy("timestamp", "desc")
-//     );
-//     onSnapshot(q, (querySnapshot) => {
-//       const arr = [];
-//       querySnapshot.forEach((doc) => {
-//         arr.push(doc.data());
-//       });
-//       setAllMessage(arr);
-//     });
-//   };
-//   getAllMessages()
-// }, [currentChat])
+
   const getAllMessages = async () => {
-    let chat_id = "";
-    if (uid < currentChat.uid) {
-      chat_id = uid + currentChat.uid;
-    } else {
-      chat_id = currentChat.uid + uid;
-    }
-    console.log(currentChat.groupId)
-    const q = query(
-      collection(db, "messages"),
-      where("chat_id", "==", chat_id),
-      orderBy("timestamp", "desc")
-    );
-    onSnapshot(q, (querySnapshot) => {
-      const arr = [];
-      querySnapshot.forEach((doc) => {
-        arr.push(doc.data());
-      });
-      setAllMessage(arr);
-    });
-  };
-  const getAllGroupMessages = async () => {
-    let chat_id = "";
-    if (uid < currentChat.uid) {
-      chat_id = uid + currentChat.uid;
-    } else {
-      chat_id = currentChat.uid + uid;
-    }
-    const q = query(
-      collection(db, "messages"),
-      where("chat_id", "==", chat_id),
-      orderBy("timestamp", "desc")
-    );
-    onSnapshot(q, (querySnapshot) => {
-      const arr = [];
-      querySnapshot.forEach((doc) => {
-        arr.push(doc.data());
-      });
-      setAllMessage(arr);
-    });
-  };
-
-  console.log("messages==>", allMessages);
-
-  useEffect(() => {
-    setAllMessage([]);
-  }, [currentChat]);
-
-  const send_message = async (event) => {
-    if (event.keyCode === 13) {
+    if (currentChat.groupId === undefined) {
       let chat_id = "";
       if (uid < currentChat.uid) {
         chat_id = uid + currentChat.uid;
-        console.log(chat_id);
       } else {
         chat_id = currentChat.uid + uid;
-        console.log(chat_id);
       }
-      let collectionRef = collection(db, "messages");
-      await addDoc(collectionRef, {
-        message,
-        uid,
-        chat_id,
-        timestamp: new Date(),
-      }).then(() => {
-        setMessage("");
+      const q = query(
+        collection(db, "messages"),
+        where("chat_id", "==", chat_id),
+        orderBy("timestamp", "desc")
+      );
+      onSnapshot(q, (querySnapshot) => {
+        const arr = [];
+        querySnapshot.forEach((doc) => {
+          arr.push(doc.data());
+        });
+        setAllMessage(arr);
+      });
+    } else {
+      const q = query(
+        collection(db, "messages"),
+        where("chat_id", "==", currentChat.groupId),
+        orderBy("timestamp", "desc")
+      );
+      onSnapshot(q, (querySnapshot) => {
+        const arr = [];
+        querySnapshot.forEach((doc) => {
+          arr.push(doc.data());
+        });
+        setAllMessage(arr);
       });
     }
   };
-  const send_messageinGroup = async (event, groupId) => {
-    if(event.keyCode == 13){
+  useEffect(() => {
+    console.log(chat_id)
+    if (chat_id) {     
+      setDoc(doc(db, "notifications", chat_id), {
+        lastMessage: message,
+        read: false
+      });
+    }
+    }, [chat_id])
 
+  const send_message = async (event) => {
+    if (event.keyCode == 13) {  
+      let chat_id = "";
+      if (uid < currentChat.uid) {
+        chat_id = uid + currentChat.uid;
+      } else {
+        chat_id = currentChat.uid + uid;
+      }
+      setchat_id(chat_id)
+      if (event.keyCode === 13) {
+        const doceRf = await addDoc(collection(db, "messages"), {
+          message,
+          uid,
+          chat_id,
+          timestamp: new Date(),
+        });
+      }
+      const washingtonRef = doc(db, "notifications",  chat_id);
+      console.log(washingtonRef);
+      await updateDoc(washingtonRef, {
+        UnRead: increment(1),
+      });
+    }
+  };
+
+
+  const send_messageinGroup = async (event, groupId, Asd) => {
+    if (event.keyCode == 13) {
       let collectionRef = collection(db, "messages");
       await addDoc(collectionRef, {
         message,
-        groupId,
+        chat_id: groupId,
         uid,
         timestamp: new Date(),
-      })
-    // alert(groupId);
+        MessengerName: currentUser.fullName,
+      });
     }
   };
 
   const addToGroup = async () => {
+    let groupId = localStorage.getItem("groupId");
     const docRef = await addDoc(collection(db, "groups"), {
-      added: true,
-      groupUsers: [],
+      groupId,
+      groupUsers: groupUsers,
+      groupUserName,
+      groupName,
     });
     console.log("Document written with ID: ", docRef.id);
     localStorage.setItem("groupId", docRef.id);
     setadded(false);
     console.log(groupUsers);
     console.log(groupName);
+    document.getElementById("close").click();
+    setgroupUsers([]);
+    setgroupName([]);
+    setgroupName("");
   };
-  useEffect(() => {
-    setgroupUsers(groupUsers);
-  }, [groupUsers]);
-
 
   const addMember = async (val, event) => {
-    let groupId = localStorage.getItem("groupId");
-    // console.log(groupId);
-    let groupChatId = ""
-    if (uid < groupId) {
-      groupChatId = uid + groupId;
-    } else {
-      groupChatId = groupId + uid;
-    }
-    
-    const washingtonRef = doc(db, "groups", groupId);
-
-    await updateDoc(washingtonRef, {
-      groupChatId: groupChatId,
-      groupName,
-      groupUserName,
-      groupUsers: groupUsers,
-    });
-    document.getElementById("clickToBack").click();
-    let newgroupusers = [...groupUsers];
-    newgroupusers.push(val.uid);
-
     event.target.style.display = "none";
-    setgroupUsers(newgroupusers);
+    document.getElementById("clickToBack").click();
     let newgusername = [...groupUserName];
     newgusername.push(val.fullName);
     setgroupUserName(newgusername);
+    let newgroupusers = [...groupUsers, uid];
+    newgroupusers.push(val.uid);
+    setgroupUsers(newgroupusers);
   };
 
   const getGroups = async () => {
-    const docRef = collection(db, "groups");
+    const docRef = query(
+      collection(db, "groups"),
+      where("groupUsers", "array-contains", uid)
+    );
     const querySnapshot = await getDocs(docRef);
     let arr = [];
     querySnapshot.forEach((doc) => {
       arr.push(doc.data());
     });
-    setgroups(arr);
+    setUsers(arr);
+    const q = query(
+      collection(db, "groups"),
+      where("groupUsers", "array-contains", uid)
+    );
+    onSnapshot(q, (querySnapshot) => {
+      const arr = [];
+      querySnapshot.forEach((doc) => {
+        arr.push(doc.data());
+      });
+      setgroups(arr);
+    });
   };
-  console.log(currentChat);
+
+  useEffect(() => {
+    setAllMessage([]);
+    getAllMessages();
+  }, [currentChat]);
+
+  const getUnreadmessages = async () => {
+    const docRef = query(
+      collection(db, "notifications"),
+      where("read", "==", false)
+    );
+    const querySnapshot = await getDocs(docRef);
+    let arr = [];
+    querySnapshot.forEach((doc) => {
+      arr.push(doc.data());
+    });
+    setUsers(arr);
+    const q = query(
+      collection(db, "groups"),
+      where("groupUsers", "array-contains", uid)
+    );
+    onSnapshot(q, (querySnapshot) => {
+      const arr = [];
+      querySnapshot.forEach((doc) => {
+        arr.push(doc.data());
+      });
+      setUnreadmessages(arr);
+    });
+  };
+  
+  useEffect(() => {
+    setAllMessage([]);
+    getAllMessages();
+  }, []);
   return (
     <div>
       <MenuAppBar title="Login" />
@@ -269,6 +280,7 @@ function Chat(props) {
                         className="btn-close"
                         data-bs-dismiss="modal"
                         aria-label="Close"
+                        id="close"
                       ></button>
                     </div>
                     <div className="modal-body">
@@ -276,6 +288,7 @@ function Chat(props) {
                         type="text"
                         onChange={(e) => setgroupName(e.target.value)}
                         className=" form-control"
+                        value={groupName}
                         name=""
                         placeholder="Enter Group Name"
                         id=""
@@ -299,7 +312,7 @@ function Chat(props) {
                       <button
                         className="btn btn-success"
                         onClick={addToGroup}
-                        // style={{display}}
+                        disabled={groupUsers.length < 3 ? true : false}
                       >
                         Create Group
                       </button>
@@ -307,7 +320,6 @@ function Chat(props) {
                         className="btn btn-primary"
                         data-bs-target="#exampleModalToggle2"
                         data-bs-toggle="modal"
-                        onClick={() => getGroupUsers()}
                       >
                         Add Members
                       </button>
@@ -430,7 +442,7 @@ function Chat(props) {
                   <div className="username">
                     <h4>{currentChat.fullName}</h4>
                     <h4>{currentChat.groupName}</h4>
-                    <p>{currentChat.groupUserName?.map((v) => v)}</p>
+                    <p>{currentChat.groupUserName?.map((v) => v + ", ")}</p>
                   </div>
                   <div className="chat_icons">
                     <div className="icon_box">
@@ -450,6 +462,7 @@ function Chat(props) {
                             {v.message}
                             <div className="message_arrow_right"></div>
                           </div>
+
                           <div className="message_right_image">
                             <img
                               src="https://wl-brightside.cf.tsp.li/resize/728x/jpg/f6e/ef6/b5b68253409b796f61f6ecd1f1.jpg"
@@ -460,6 +473,9 @@ function Chat(props) {
                       ) : (
                         <div className="message_left">
                           <div>
+                            <b>
+                              <i>{v.MessengerName}</i>
+                            </b>
                             <img
                               src="https://wl-brightside.cf.tsp.li/resize/728x/jpg/f6e/ef6/b5b68253409b796f61f6ecd1f1.jpg"
                               alt=""
@@ -478,8 +494,12 @@ function Chat(props) {
                   {currentChat.groupId ? (
                     <div className="message_input">
                       <input
-                        onKeyUp={
-                         (e)=> send_messageinGroup(e, currentChat.groupId)
+                        onKeyUp={(e) =>
+                          send_messageinGroup(
+                            e,
+                            currentChat.groupId,
+                            currentChat.fullName
+                          )
                         }
                         // onKeyUp={(currentChat?.groupId) => currentChat.groupId? }
                         value={message}
@@ -491,9 +511,7 @@ function Chat(props) {
                   ) : (
                     <div className="message_input">
                       <input
-                        onKeyUp={
-                         send_message
-                        }
+                        onKeyUp={send_message}
                         // onKeyUp={(currentChat?.groupId) => currentChat.groupId? }
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
